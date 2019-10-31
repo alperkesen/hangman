@@ -17,21 +17,25 @@ class Client:
         self.pid = -1
 
         self.register()
+        self.start()
 
     def register(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.server_name, self.port_no))
         received_data = self.send_message("register")
-        self.pid = received_data.msg
+        self.pid = received_data["msg"]
 
     def start(self):
         while True:
             msg = input("Enter the message: ")
+
+            if msg == "exit":
+                break
+
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((self.server_name, self.port_no))
-            msg = {"pid": self.pid, "msg": msg}
-            print(msg)
-            self.send_message(json.dumps(msg))
+            response = self.send_message(msg)
+            print("From server: ", response)
 
     def send_message(self, msg):
         data = {
@@ -40,10 +44,12 @@ class Client:
         }
 
         data_json = json.dumps(data)
-        self.socket.send(data_json)
-        response = self.socket.recv(1024)
+        print(data_json)
+        self.socket.send(data_json.encode())
 
-        return json.loads(response)
+        response = json.loads(self.socket.recv(1024))
+
+        return response
 
     def __del__(self):
         self.socket.close()
