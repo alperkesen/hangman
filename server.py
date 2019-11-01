@@ -30,6 +30,7 @@ class Server:
         self.order = 0
 
         self.is_start = False
+        self.tries = 0
 
         self.target_phrase = None
         self.status = None
@@ -113,6 +114,23 @@ class Server:
                 print(addr, " says: {}".format(msg))
                 response = "Nice message!"
                 self.send_message(client, response)
+
+            if self.is_start and self.tries >= 7:
+                print("7 wrong guesses!")
+                print("Game Over!")
+
+                self.is_start = False
+                self.players = dict()
+                self.order = 0
+                self.tries = 0
+            elif self.is_start and "".join(self.status) == self.target_phrase:
+                print("Phrase is {}".format(self.target_phrase))
+                print("Game Over!")
+
+                self.is_start = False
+                self.players = dict()
+                self.order = 0
+                self.tries = 0
 
     def register(self, client, addr, args=list()):
         client_args = list()
@@ -203,6 +221,9 @@ class Server:
             else:
                 msg = "wrong_guess_letter"
 
+                self.wrong_letter_guess[addr].append(letter)
+                self.tries += 1
+
             self.order += 1
 
         self.send_message(client, msg, client_args)
@@ -224,11 +245,14 @@ class Server:
             if phrase.upper() == self.target_phrase:
                 print("Correct phrase!")
                 msg = "correct_guess_phrase"
+
                 self.status = self.target_phrase
             else:
                 print("Wrong phrase!")
                 msg = "wrong_guess_phrase"
+
                 self.wrong_phrase_guess[addr].append(phrase)
+                self.tries += 1
 
             self.order += 1
 
@@ -249,7 +273,8 @@ class Server:
 
             client_args = [self.status,
                            [str(i) for i in self.players.values()],
-                           self.players[self.orders[self.order % self.num_players]]]
+                           self.players[self.orders[self.order % self.num_players]],
+                           self.tries]
 
         self.send_message(client, msg, client_args)
 
@@ -259,7 +284,7 @@ class Server:
         self.status = [letter.upper() if self.target_phrase[i] == letter.upper()
                        else self.status[i] for i in range(len_target)]
 
-        return self.target_phrase.count(letter)
+        return self.target_phrase.count(letter.upper())
 
     def ask_num_players(self):
         num_players = int(input("How many players?: "))

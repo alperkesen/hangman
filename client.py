@@ -146,16 +146,18 @@ class Client:
         response = self.send_message(msg, args)
 
         if response["msg"] == "successful_status":
-            print("\nHello, Player {}!".format(self.pid))
+            print("\nHello, Player {}!\n".format(self.pid))
             response_args = response["args"]
             status = " ".join(response_args[0])
             players = " ".join(response_args[1])
             whose_turn = "Player {}'s turn.".format(response_args[2])
+            tries = response_args[3]
 
             print("Phrase: ", status)
             print()
             print("Players: ", players)
             print(whose_turn)
+            print("Tries: ", tries)
 
     def send_message(self, msg, args=list()):
         data = {
