@@ -16,6 +16,7 @@ class Client:
         self.port_no = port_no
         self.pid = -1
         self.debug = debug
+        self.is_playing = False
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.server_name, self.port_no))
@@ -24,7 +25,28 @@ class Client:
 
     def start(self):
         while True:
-            self.print_status()
+            if self.is_playing:
+                print("Waiting...")
+
+            while self.is_playing:
+                msg = "is_turn"
+                args = list()
+                response = self.send_message(msg, args)
+
+                if response["msg"] == self.pid:
+                    self.print_status()
+                    break
+                elif response["msg"] == "seven_wrong_guess":
+                    self.is_playing = False
+                    print("\n7 wrong guesses!")
+                    print("Game Over\n")
+                elif response["msg"] == "phrase_found":
+                    self.is_playing = False
+                    print("\nPhrase is found!")
+                    print(response["args"][0])
+                    print("Game Over\n")
+                else:
+                    pass
 
             print("\nFor help, enter 'help'")
             msg = input("Enter the message: ")
@@ -82,7 +104,18 @@ class Client:
                     print("You joined the game!")
                     other_players = response["args"][0]
                     self.pid = response["args"][1]
-                    print("Other players: ", " ".join(other_players))
+                    print("Current players: ", " ".join(other_players))
+                    print("Waiting for other players...")
+
+                    msg = "is_ready"
+                    response = self.send_message(msg, args)
+
+                    if response["msg"] == "ready":
+                        print("Game starts!")
+                    else:
+                        pass
+
+                    self.is_playing = True
                 else:
                     print(response)
             elif msg == "help":

@@ -60,10 +60,6 @@ class Server:
                 self.wrong_letter_guess = {addr: list() for addr in self.players}
                 self.wrong_phrase_guess = {addr: list() for addr in self.players}
 
-            if self.is_start:
-                print("\n--Status--\n")
-                print(" ".join(self.status))
-
             data = client.recv(1024)
             data = json.loads(data)
 
@@ -110,27 +106,36 @@ class Server:
                 self.print_admin_info()
                 response = "Hey admin!"
                 self.send_message(client, response)
+            elif msg == "is_ready":
+                while (len(self.players) != self.num_players):
+                    response = "not_ready"
+
+                print("Ready for playing!")
+                response = "ready"
+                self.send_message(client, "ready")
+            elif msg == "is_turn":
+                if self.tries >= 2:
+                    response = "seven_wrong_guess"
+                    self.send_message(client, response, args)
+                    self.initialize_game()
+                elif "".join(self.status) == self.target_phrase:
+                    response = "phrase_found"
+                    args = [self.target_phrase]
+                    self.send_message(client, response, args)
+                    self.initialize_game()
+                else:
+                    response = self.players[self.orders[self.order % self.num_players]]
+                    self.send_message(client, response)
             else:
                 print(addr, " says: {}".format(msg))
                 response = "Nice message!"
                 self.send_message(client, response)
 
-            if self.is_start and self.tries >= 7:
-                print("7 wrong guesses!")
-                print("Game Over!")
-
-                self.is_start = False
-                self.players = dict()
-                self.order = 0
-                self.tries = 0
-            elif self.is_start and "".join(self.status) == self.target_phrase:
-                print("Phrase is {}".format(self.target_phrase))
-                print("Game Over!")
-
-                self.is_start = False
-                self.players = dict()
-                self.order = 0
-                self.tries = 0
+    def initialize_game(self):
+        self.is_start = False
+        self.players = dict()
+        self.order = 0
+        self.tries = 0
 
     def register(self, client, addr, args=list()):
         client_args = list()
