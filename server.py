@@ -5,7 +5,6 @@ import threading
 import random
 import socket
 import json
-import time
 
 
 CONFIG = {"port": 8000}

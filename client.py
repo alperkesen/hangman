@@ -1,4 +1,4 @@
-n#!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import socket
@@ -223,7 +223,10 @@ class Client:
 
         self.socket.send(data_json.encode())
 
-        response = json.loads(self.socket.recv(1024))
+        try:
+            response = json.loads(self.socket.recv(1024))
+        except:
+            response = ""
 
         return response
 
