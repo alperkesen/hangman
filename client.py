@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+n#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import socket
@@ -28,12 +28,20 @@ class Client:
             if self.is_playing:
                 print("Waiting...")
 
+            old_pid = None
+
             while self.is_playing:
                 msg = "is_turn"
                 args = list()
                 response = self.send_message(msg, args)
 
+                if old_pid != response["msg"]:
+                    self.print_status()
+
+                old_pid = response["msg"]
+
                 if response["msg"] == self.pid:
+                    print("Your turn")
                     self.print_status()
                     break
                 elif response["msg"] == "seven_wrong_guess":
@@ -45,6 +53,9 @@ class Client:
                     print("\nPhrase is found!")
                     print(response["args"][0])
                     print("Game Over\n")
+                elif response["msg"] == "game_over":
+                    self.is_playing = False
+                    print("\nGame Over!")
                 else:
                     pass
 
@@ -185,12 +196,19 @@ class Client:
             players = " ".join(response_args[1])
             whose_turn = "Player {}'s turn.".format(response_args[2])
             tries = response_args[3]
+            last_guess = response_args[4]
+            wrong_letter_guess = response_args[5]
+            wrong_phrase_guess = response_args[6]
 
             print("Phrase: ", status)
             print()
             print("Players: ", players)
             print(whose_turn)
+            print("Last guess: ", last_guess)
+            print("Wrong letter guesses: ", wrong_letter_guess)
+            print("Wrong phrase guesses: ", wrong_phrase_guess)
             print("Tries: ", tries)
+            print("Remaining attempts: ", 7 - tries)
 
     def send_message(self, msg, args=list()):
         data = {

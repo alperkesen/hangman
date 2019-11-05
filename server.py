@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import threading
+import random
 import socket
 import json
 import time
@@ -23,6 +24,7 @@ class Server:
         print("Listening: ", self.port_no)
 
         self.accounts = dict()
+        self.accounts = {"a": "1", "b": "1", "c": "1", "d": "1"}
         self.login_accounts = dict()
         self.players = dict()
 
@@ -37,6 +39,7 @@ class Server:
 
         self.wrong_letter_guess = None
         self.wrong_phrase_guess = None
+        self.last_guess = None
 
         self.num_players = self.ask_num_players()
         self.listen_clients()
@@ -50,16 +53,6 @@ class Server:
         self.orders.append(addr)
 
         while True:
-            if len(self.players) >= self.num_players and not self.is_start:
-                self.is_start = True
-                self.order = 0
-                self.target_phrase = "AMOUR"
-                self.status = ["_" for c in self.target_phrase]
-                print("Game started...")
-
-                self.wrong_letter_guess = {addr: list() for addr in self.players}
-                self.wrong_phrase_guess = {addr: list() for addr in self.players}
-
             data = client.recv(1024)
             data = json.loads(data)
 
@@ -68,7 +61,7 @@ class Server:
 
             if msg == "exit":
                 print(addr, " is closed.")
-                self.orders.pop(addr)
+                self.orders.remove(addr)
 
                 try:
                     username = self.login_accounts.pop(addr)
@@ -110,32 +103,49 @@ class Server:
                 while (len(self.players) != self.num_players):
                     response = "not_ready"
 
+                if not self.is_start:
+                    self.start_game()
                 print("Ready for playing!")
                 response = "ready"
-                self.send_message(client, "ready")
+                self.send_message(client, response)
             elif msg == "is_turn":
-                if self.tries >= 2:
+                if self.tries >= 7:
                     response = "seven_wrong_guess"
                     self.send_message(client, response, args)
-                    self.initialize_game()
-                elif "".join(self.status) == self.target_phrase:
+                    self.is_start = False
+                    self.players = dict()
+                elif self.is_start and "_" not in self.status:
                     response = "phrase_found"
                     args = [self.target_phrase]
                     self.send_message(client, response, args)
-                    self.initialize_game()
+                    self.is_start = False
+                    self.players = dict()
                 else:
-                    response = self.players[self.orders[self.order % self.num_players]]
-                    self.send_message(client, response)
+                    try:
+                        response = self.players[self.orders[self.order % self.num_players]]
+                        self.send_message(client, response)
+                    except KeyError:
+                        response = "game_over"
+                        self.send_message(client, response)
+                        self.is_start = False
+                        self.players = dict()
             else:
                 print(addr, " says: {}".format(msg))
                 response = "Nice message!"
                 self.send_message(client, response)
 
-    def initialize_game(self):
-        self.is_start = False
-        self.players = dict()
+    def start_game(self):
+        self.is_start = True
         self.order = 0
         self.tries = 0
+        self.target_phrase = self.random_phrase()
+        self.status = ["_" for c in self.target_phrase]
+        print("Game started...")
+        print("Target Phrase: ", self.target_phrase)
+        print("Status: ", self.status)
+
+        self.wrong_letter_guess = {addr: list() for addr in self.players}
+        self.wrong_phrase_guess = {addr: list() for addr in self.players}
 
     def register(self, client, addr, args=list()):
         client_args = list()
@@ -217,6 +227,14 @@ class Server:
         elif not args or len(args[0]) > 1:
             print("Not letter!")
             msg = "not_letter"
+
+            self.tries += 1
+            self.order += 1
+
+            self.last_guess = args[0].lower()
+
+            if args:
+                self.wrong_letter_guess[addr].append(args[0].lower())
         else:
             letter = args[0]
             num_correct = self.change_letter(letter)
@@ -226,8 +244,10 @@ class Server:
             else:
                 msg = "wrong_guess_letter"
 
-                self.wrong_letter_guess[addr].append(letter)
+                self.wrong_letter_guess[addr].append(letter.lower())
                 self.tries += 1
+
+            self.last_guess = letter.lower()
 
             self.order += 1
 
@@ -247,7 +267,7 @@ class Server:
         else:
             phrase = args[0]
 
-            if phrase.upper() == self.target_phrase:
+            if phrase.lower() == self.target_phrase:
                 print("Correct phrase!")
                 msg = "correct_guess_phrase"
 
@@ -256,9 +276,10 @@ class Server:
                 print("Wrong phrase!")
                 msg = "wrong_guess_phrase"
 
-                self.wrong_phrase_guess[addr].append(phrase)
+                self.wrong_phrase_guess[addr].append(phrase.lower())
                 self.tries += 1
 
+            self.last_guess = phrase.lower()
             self.order += 1
 
         self.send_message(client, msg, client_args)
@@ -279,22 +300,31 @@ class Server:
             client_args = [self.status,
                            [str(i) for i in self.players.values()],
                            self.players[self.orders[self.order % self.num_players]],
-                           self.tries]
+                           self.tries,
+                           self.last_guess,
+                           list(self.wrong_letter_guess.values()),
+                           list(self.wrong_phrase_guess.values())]
 
         self.send_message(client, msg, client_args)
 
     def change_letter(self, letter):
         len_target = len(self.target_phrase)
 
-        self.status = [letter.upper() if self.target_phrase[i] == letter.upper()
+        self.status = [letter.lower() if self.target_phrase[i] == letter.lower()
                        else self.status[i] for i in range(len_target)]
 
-        return self.target_phrase.count(letter.upper())
+        return self.target_phrase.count(letter.lower())
 
     def ask_num_players(self):
         num_players = int(input("How many players?: "))
 
         return num_players
+
+    def random_phrase(self, filename="phrase.txt"):
+        phrase_file = open(filename, "r")
+        phrases = phrase_file.read().split("\n")[:-1]
+
+        return random.choice(phrases)
 
     def send_message(self, connected_socket, msg, args=list()):
         data = {
@@ -316,6 +346,8 @@ class Server:
         print("Game started?: ", self.is_start)
         print("Target: ", self.target_phrase)
         print("Status: ", self.status)
+        print("Wrong letter guess:", self.wrong_letter_guess)
+        print("Wrong phrase guess:", self.wrong_phrase_guess)
 
     def __del__(self):
         self.socket.close()
